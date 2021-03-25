@@ -1,0 +1,549 @@
+---
+title: "Power Analysis Workshop"
+author: "Christopher Rota"
+date: "3/25/2021"
+output: slidy_presentation
+---
+
+## What is a power analysis?
+
+<div class='left' style='float:left;width:48%'>
+
+* Used to determine sample size for study
+* Can be used to determine other sampling strategies
+  * e.g., levels of covariate selection can improve power
+* Available both analytically or in a simulation environment
+
+</div>
+
+<div class='right' style='float:right;width:48%'>
+```{r, echo = F, out.width='80%'}
+knitr::include_graphics('Figures/power_meme.jpg')
+```
+</div>
+
+## Review of types of errors
+
+Recall from your introductory statistics courses (and even quantitative ecology) type I and type II errors:
+
+
+Decision            | Null hypothesis 'true' | Null hypothesis 'false'
+------------------- | ---------------------- | -----------------------
+Fail to reject null | $1 - \alpha$ | $\beta$
+Reject null         | $\alpha$              | $1 - \beta$
+
+'Power' is the probability of correctly rejecting the null when the null hypothesis is false. Power is denoted here as $1-\beta$
+
+## Ingredients of statistical power
+
+The power to correctly reject a false null hypothesis has several ingredients:
+
+* Sample size
+* Process variance
+* Effect size
+* Acceptable type-1 error rate
+* Values of predictor variable
+
+## Analytical power analysis
+
+In some relatively simple situations, we can analytically calculate the probability of correctly rejecting a false null hypothesis.  For example, consider power calculations for linear regression.
+
+Recall from quantitative ecology (and perhaps other statistics courses) that the test statistic associated with your null hypothesis is:
+
+$$
+t = \frac{\hat{\beta}-\beta_{null}}{s(\hat{\beta})}
+$$
+
+and, under repeated sampling, that this test statistic is assumed to follow a *t* distribution with *N-K* degrees of freedom:
+
+$$
+t \sim t(\text{df} = N-K)
+$$
+
+## Analytical power analysis
+
+It turns out that your test statistic also has a distribution if the slope coefficient is equal to a quantity *other* than the null hypothesis!  Let's say the 'true' value of your slope coefficient is $\beta_{truth}$. We can calculate non-centrality parameter $\delta$ as follows:
+
+$$
+\delta = \frac{|\beta_{null} - \beta_{truth}|}{\sigma(\hat{\beta})}
+$$
+
+where $\sigma^2(\hat{\beta})$ is the sampling variance of the slope coefficient $\hat{\beta}$ (dig deep back to quantitative for more details):
+
+$$
+\sigma^2(\hat{\beta}) = \frac{\sigma^2}{\sum(x - \bar{x})^2}
+$$
+
+This test statistic has a non-central t-distribution, with non-centrality parameter $\delta$:
+
+$$
+t_{truth} \sim t(df = N - K, ncp = \delta)
+$$
+
+## Analytical power analysis
+
+Alright ... I think we're mostly done with the ugly equations?  But at least one more.
+
+We now know the sampling distribution of our test statistic under assumptions other than the null hypothesis. Our power is then the probability that we observe an absolute value of a test statistic that is greater than our critical value under the assumptions of the null hypothesis.  If we let $t_{crit}$ denote the critical value of a test statistic under the assumptions of the null hypothesis:
+
+$$
+Power = P \{ t_{truth} > t_{crit} \}
+$$
+
+## Analytical power analysis
+
+For those of you who are more graphically inclined:
+
+```{r, echo = F}
+
+x <- seq(-4, 6, length.out = 100)
+ct <- qt(0.975, 48)
+ncp <- 1.862629
+
+plot(x = x, y = dt(x, 48, ncp), type = 'l',
+     ylab = 'density', xlab = 'test statistic',
+     cex.lab = 2, cex.axis = 2, lwd = 2)
+lines(x = x, y = dt(x, 48), lty = 2, lwd = 2)
+legend('topright', c('null','truth'), lty = c(2, 1), cex = 2)
+abline(v = ct, col = 'red', lwd = 2)
+abline(v = -1 * ct, col = 'red', lwd = 2)
+
+```
+
+The dashed line is the distribution of the test statistic under the assumptions of the null hypothesis, and the solid line is the distribution of the test statistic under the 'true' value of the slope coefficient.
+
+The red vertical line is the critical value of our test statistic, under the assumptions of the null, that would lead us to reject the null hypothesis. We reject the null any time we obtain a test statistic to the left or right of the red line.
+
+Since rejecting the null would be the 'correct' decision, our power is the area under the curve of the solid line to the left and right of the red vertical line.
+
+## Example
+
+For example, let's assume:
+
+* a type-1 error rate of 0.05
+* a sample size of 50
+* a linear model with 2 slope coefficients
+* error variance ($\sigma^2$) = 5
+* a difference between the null ($\beta_{null}$) and truth ($\beta_{truth}$) of 1.
+
+```{r}
+## Sample size
+N <- 50
+
+## critical value of test statistic
+ct <- qt(0.975, N - 2)
+ct
+
+## error variance
+s2 <- 5
+
+## predictor variables
+x <- seq(-1, 1, length.out = N)
+
+## sampling variance, slope coefficient
+s_beta <- s2 / sum((x - mean(x)) ^ 2)
+s_beta
+
+## non-centrality parameter
+delta <- 1 / sqrt(s_beta)
+delta
+
+## POWER: probability of observing a test statistic greater than ct
+pt(-1 * abs(ct), N - 2, ncp = delta) +
+  pt(abs(ct), N - 2, ncp = delta, lower.tail = F)
+```
+So our power is about 0.45.
+
+
+## Example
+
+We could increase our sample size if you wanted to see what that does to power:
+
+For example, let's now assume:
+
+* a type-1 error rate of 0.05
+* a sample size of 100
+* a linear model with 2 slope coefficients
+* error variance ($\sigma^2$) = 5
+* a difference between the null ($\beta_{null}$) and truth ($\beta_{truth}$) of 1.
+
+```{r}
+## Sample size
+N <- 100
+
+## critical value of test statistic
+ct <- qt(0.975, N - 2)
+ct
+
+## error variance
+s2 <- 5
+
+## predictor variables
+x <- seq(-1, 1, length.out = N)
+
+## sampling variance, slope coefficient
+s_beta <- s2 / sum((x - mean(x)) ^ 2)
+s_beta
+
+## non-centrality parameter
+delta <- 1 / sqrt(s_beta)
+delta
+
+## POWER: probability of observing a test statistic greater than ct
+pt(-1 * abs(ct), N - 2, ncp = delta) +
+  pt(abs(ct), N - 2, ncp = delta, lower.tail = F)
+```
+
+So our power is now about 0.73.
+
+## Analytical power analysis
+
+There are numerous canned packages / online tools to help you with this kind of analysis. For example:
+
+* `pwr` package in R: https://cran.r-project.org/web/packages/pwr/pwr.pdf
+* G*POWER: https://stats.idre.ucla.edu/other/gpower/
+* many more
+
+Many come with very specific assumptions. I could help you think about these on a case-by-case basis, but there are so many I cannot make a general presentation beyond what I've done so far.
+
+## Simulation-based power analysis
+
+A far more generalizable tool is simulation-based power analysis.  Many modern approaches to power analysis use simulation. For example:
+
+* Banner et al. 2019, Statistical power of dynamic occupancy models to identify temporal change: Informing the North American Bat Monitoring Program, *Ecological Indicators*, https://www.fs.fed.us/nrs/pubs/jrnl/2019/nrs_2019_banner_001.pdf
+* Southwell et al. 2019, Spatially explicit power analysis for detecting occupancy trends for multiple species, *Ecological Applications*, https://esajournals.onlinelibrary.wiley.com/doi/10.1002/eap.1950
+
+Again, these are often developed around specific designs.  I can help on case-by-case basis.
+
+My goal today is to give you tools to develop your own simulation-based power analysis, customized for your own application.
+
+## Simulation-based power analysis
+
+The benefits of simulation-based power analysis are many:
+
+* Deep thinking about data generating process
+* Realistic evaluation of effect sizes
+* Practice fitting models before collecting any data
+* Explicit consideration of study design
+
+## Simulation-based power analysis
+
+Let's draw on our example from above and now simulate our power.  In words, this involves:
+
+* Explicitly stating effect size, sample size, error variance, etc. 
+* Simulating data under those assumptions
+* Fitting a model to simulated data and recording whether you reject the null hypothesis
+* Repeating many times to estimate probability of correctly rejecting the null hypothesis.
+
+Example R code is below:
+
+```{r}
+sims <- 5000  # number of simulations
+
+N <- 100  # sample size
+b <- c(0, 1)  # intercept and slope coefficients
+
+# error variance
+s2 <- 5
+
+# predictor variables
+x <- seq(-1, 1, length.out = N)
+
+ts <- rej <- numeric(sims)  # store test statistic and decision
+
+for(i in 1:sims){  # looping through simulations
+  y <- b[1] + b[2] * x + rnorm(N, sd = sqrt(s2))  # simulating data
+  fit <- lm(y ~ x)  # fitting model to simulated data
+  
+  # storing test statistic and decision
+  ts[i] <- summary(fit)[['coefficients']][2, 3]
+  rej[i] <- summary(fit)[['coefficients']][2, 4] < 0.05
+}
+
+# plotting distribution of test statistic
+ts_range <- seq(min(ts), max(ts), length.out = 100)
+hist(ts, freq = F)
+lines(ts_range, dt(ts_range, N - 2,
+                   b[2] * sqrt(sum((x - mean(x)) ^ 2)) / sqrt(s2)))
+
+## Estimate of the probability of correctly rejecting the null hypothesis.
+mean(rej)  # very close to our power with N = 100, with monte carlo error
+```
+
+## Customizing simulaton-based power analysis
+
+<div class='left' style='float:left;width:48%'>
+
+Let's make a drastic departure from Gaussian regression and dive right into power analysis for an occupancy study.
+
+Let's base our analysis on ovenbird point count data from the Monongahela National Forest.
+
+* Interested in detecting a change in occupancy probability through time
+* Account for effect of survey date on imperfect detection
+
+</div>
+
+<div class='right' style='float:right;width:48%'>
+```{r, echo = F, out.width='85%'}
+knitr::include_graphics('Figures/oven.jpg')
+```
+</div>
+
+## Defining effect size
+
+We will model occupancy probability as a linear function of year. Our power will be the probability of rejecting the null hypothesis that our slope coefficient = 0, when in fact occupancy changes with year.
+
+We'll first consider what reasonable effect sizes may be, and translate them to the appropriate scale.
+
+* Previous data indicates occupancy probability of the Ovenbird may in the Monongahela National Forest may be 0.45 in 2021.
+* What is the power to detect a 5% decline in occupancy probability by 2025?
+
+## Defining effect size
+
+Recall that when modeling probabilities, we must use the log odds scale:
+
+$$
+LO = log\bigg(\frac{\psi}{1 - \psi}\bigg)
+$$
+
+Recall also that your slope coefficient is the change in log odds associated with a 1-unit change in your predictor variables.  This means we can calculate the difference in log odds between 2025 and 2021 and divide by the number of years to obtain an estimate of the annual change in log odds:
+
+$$
+\beta = \frac{LO_{2025}-LO_{2021}}{2025 - 2021}
+$$
+
+Calculating in R:
+
+```{r}
+lo_2025 <- log(0.40) - log(0.60)  # log odds in 2025
+lo_2021 <- log(0.45) - log(0.55)  # log odds in 2021
+beta <- (lo_2025 - lo_2021) / 4
+```
+
+Let's check to make sure we did this correctly:
+
+```{r}
+b0 <- lo_2021  # intercept, occupancy in 2021
+x <- 0:4  # 2021 = 0, 2022 = 1, etc.
+y <- b0 + beta * x  # linear model
+plogis(y)  # exactly the changes we seek
+```
+
+## Include any specific design issues
+
+Other design issues will influence your power.  For an occupancy model, we must at least consider:
+
+* Detection probability
+* Number of replicate surveys
+
+## Detection probability
+
+* Previous surveys in the Monongahela National Forest suggest a 0.37 detection probability in mid-May during a 5-minute survey.
+* We know we will just complete 2 5-minute surveys at a site.
+* Previous work also indicates ovenbird detection probability declines as the breeding season progresses. By the middle of July, detection probability is approximately 0.27 during a 5-minute survey.
+
+R-code for calculating ordinal day effect:
+
+```{r}
+alp_may <- log(0.37) - log(1 - 0.37)  # log odds detection start
+alp_jul <- log(0.27) - log(1 - 0.27)  # log odds detection end
+alp <- (alp_jul - alp_may) / 60  # daily change in log odds detection
+
+a0 <- alp_may  # initial detection probability
+days <- 0:60  # day of survey (may 15 is day 0)
+plogis(a0 + alp * days)  # perfect
+```
+
+## Final sampling design issues
+
+* We know we will only include 2 replicate surveys at a site, each 5-minutes in length.
+
+* We wish to know how many techs we'd need to hire to have an 80% probability of detecting a 5% decline in occupancy probability by 2025.
+
+* Assume each technician can complete 5 point counts / day on average for each of the 60 days of the field season.
+
+* Therefore, we will evaluate scenarios of 300, 600, and 900 total point counts each year.
+
+## Simulating data!
+
+We'll first simulate site occupancy in each of the years.  I'll write this as a function so we can easily change the sample size.
+
+```{r}
+
+site_occu <- function(N, betas, yrs){
+  # N is number of sites per year
+  # betas is slope coefficients
+  # yrs is number of years of surveys
+  
+  # design matrix
+  dm <- cbind(1, rep(seq(0, length.out = yrs), each = N))
+  
+  # occupancy probability
+  psi <- plogis((dm %*% betas)[, 1])
+  
+  # true occupancy at each site
+  z <- rbinom(nrow(dm), 1, psi)
+  
+  return(list(
+    design_matrix = dm,
+    occupancy = z
+  ))
+}
+
+```
+
+## Simulating data!
+
+Let's now simulate the detection process, conditional on the latent occupancy state. We'll again write this as a function so it's easy to change with sample size
+
+```{r}
+
+detect <- function(alphas, betas, J, pc, days, yrs){
+  
+  # alphas is detection coefficients
+  # betas is occupancy coefficients
+  # J is the number of replicate surveys at each site
+  # pc is number of point counts / day
+  # days is the number of survey days each year
+  # yrs is number of years of study
+  
+  # detection non-detection matrix
+  y <- matrix(nrow = pc * days * yrs, ncol = J)
+  
+  # design matrix, survey date
+  dm_p <- cbind(1, rep(seq(0, length.out = days),
+                       each = pc, times = yrs))
+  
+  # simulate occupancy state
+  z <- site_occu(pc * days, betas, yrs)
+  
+  # simulate detection / non-detection
+  for(j in 1:J){
+    y[, j] <- rbinom(pc * days * yrs, 1,
+                     z$occupancy * plogis((dm_p %*% alphas)[, 1]))
+  }
+  
+  return(list(
+    y = y,
+    sitecovs = z$design_matrix,
+    obscovs = dm_p
+  ))
+  
+  
+}
+
+```
+
+## Fit simulated data with occupancy model
+
+Now that we've simulated a fake dataset we can fit a model and determine whether we would reject our null hypothesis.
+
+```{r}
+library(unmarked)
+
+# simulating dataset
+sim_dat <- detect(c(a0, alp), c(b0, beta), J = 2, pc = 5, days = 60, yrs = 5)
+
+# formatting data for unmarked
+occu_dat <- unmarkedFrameOccu(
+  y = sim_dat$y,
+  siteCovs = data.frame(yr = sim_dat$sitecovs[, 2]),
+  obsCovs = list(
+    day = data.frame(
+      dj1 = sim_dat$obscovs[, 2],
+      dj2 = sim_dat$obscovs[, 2]
+    )
+  )
+)
+
+# fitting occupancy model
+fit <- occu(~day ~yr, occu_dat)
+fit
+```
+
+Do we reject or fail to reject our null hypothesis?
+
+## Simulate power analysis
+
+Now, we repeat this an arbitrarily large number of times, each time storing whether we reject the null hypothesis or not.  The probability of correctly rejecting the null hypothesis, at a type-1 error rate of 0.05, is our power:
+
+```{r, results='hide'}
+sims <- 100  # small so it doesn't take forever to run
+rej <- numeric(sims)  # storing whether we reject our null hypothesis
+
+for(i in 1:sims){  # loop through all simulations
+  # simulate a new dataset
+  sim_dat <- detect(c(a0, alp), c(b0, beta), J = 2, pc = 5, days = 60, yrs = 5)
+
+  # formatting data for unmarked
+  occu_dat <- unmarkedFrameOccu(
+    y = sim_dat$y,
+    siteCovs = data.frame(yr = sim_dat$sitecovs[, 2]),
+    obsCovs = list(
+      day = data.frame(
+        dj1 = sim_dat$obscovs[, 2],
+        dj2 = sim_dat$obscovs[, 2]
+        )
+      )
+    )
+  
+  # fitting occupancy model
+  fit <- occu(~day ~yr, occu_dat)
+  rej[i] <- summary(fit)$state[2, 4] < 0.05
+}
+```
+
+This is our power:
+```{r}
+mean(rej)
+```
+
+
+## Simulate power analysis
+
+Ok, given these parameters, our probability of detecting a 5% decline is pretty low.  What happens if we hire another tech?
+
+```{r, results = 'hide'}
+sims <- 100  # small so it doesn't take forever to run
+rej <- numeric(sims)  # storing whether we reject our null hypothesis
+
+for(i in 1:sims){  # loop through all simulations
+  # simulate a new dataset
+  sim_dat <- detect(c(a0, alp), c(b0, beta), J = 2, pc = 10, days = 60, yrs = 5)
+
+  # formatting data for unmarked
+  occu_dat <- unmarkedFrameOccu(
+    y = sim_dat$y,
+    siteCovs = data.frame(yr = sim_dat$sitecovs[, 2]),
+    obsCovs = list(
+      day = data.frame(
+        dj1 = sim_dat$obscovs[, 2],
+        dj2 = sim_dat$obscovs[, 2]
+        )
+      )
+    )
+  
+  # fitting occupancy model
+  fit <- occu(~day ~yr, occu_dat)
+  rej[i] <- summary(fit)$state[2, 4] < 0.05
+}
+```
+
+This is our power:
+
+```{r}
+mean(rej)
+```
+
+That's a little better, but power still isn't awesome.
+
+## Conclusions
+
+Simulation-based power analysis is a powerful technique to customize power analysis for your system.  Benefits:
+
+* Makes you think hard about effect size
+* Makes you think hard about study design and analysis
+* Practice fitting models you will use!
+* Better understanding of hypothesized ecological process as you simulate data
+
+## Questions?
